@@ -20,7 +20,7 @@ Run `system migration-status`, take and verify a backup, then run
 `system migration-upgrade`. Startup never migrates. Downgrade is an explicit,
 limited recovery operation and must be tested with the selected database engine.
 Follow [Production operations](PRODUCTION_OPERATIONS.md) and
-[Migration verification](MIGRATION_VERIFICATION_1.0.0.md).
+[Production operations](PRODUCTION_OPERATIONS.md). Historical local migration-verification reports are not distributed in this public snapshot.
 
 For local SQLite, stop writes, copy the database and its migration state, open the
 copy with SQLite integrity checking, and compare user, alert, delivery, action,
