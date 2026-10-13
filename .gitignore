@@ -1,0 +1,60 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.log
+.env
+.idea/
+.vscode/
+build/
+dist/
+*.egg-info/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+logs/
+
+# Data formats globally ignored
+*.csv
+*.parquet
+*.feather
+*.npy
+*.npz
+*.joblib
+*.pkl
+*.zip
+*.tar.gz
+*.7z
+
+# AI Dataset Safety Rules
+# Prevent large datasets and serialized artifacts from entering Git
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+
+# Do NOT ignore data/samples/ globally as it contains safe test fixtures.
+# We explicitly allow sample test files even if they match global patterns.
+!data/samples/**
+!data/samples/**/*.csv
+!data/samples/**/*.parquet
+!data/samples/**/*.feather
+!data/samples/**/*.npy
+!data/samples/**/*.npz
+!data/samples/**/*.joblib
+!data/samples/**/*.pkl
+
+# AI Model Persistence Rules
+# Ignore all models locally built to prevent large binaries from entering Git
+models/*
+!models/.gitkeep
+
+.pytest_cache/
+.agents/
+demo_v/
+*.pem
+*.key
+*.pcap
+*.pcapng

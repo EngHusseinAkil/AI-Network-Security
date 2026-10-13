@@ -1,0 +1,97 @@
+{% from "dashboard/components/macros.html" import status_badge, info_card, empty_state, warning_banner, data_table, pagination, loading_state %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }} - {{ project_name }}</title>
+    <link rel="stylesheet" href="{{ url_for('dashboard.static', filename='css/dashboard.css') }}">
+</head>
+<body class="theme-dark">
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    {% if demo_mode %}
+    <div class="warning-banner" role="status">DEMO MODE - synthetic data and fake providers only</div>
+    {% endif %}
+
+    <header class="top-nav" role="banner">
+        <div class="top-nav-brand">
+            <h1>{{ project_name }}</h1>
+        </div>
+        <div class="top-nav-actions">
+            {% if current_user %}
+            <span>{{ current_user.login_label }} ({{ current_user.role }})</span>
+            <form method="POST" action="{{ url_for('auth.logout') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit">Sign out</button>
+            </form>
+            {% endif %}
+            <span class="version-badge">v{{ app_version }} (API: {{ api_version }})</span>
+            <button id="mobile-menu-toggle" aria-expanded="false" aria-controls="main-nav" aria-label="Toggle Navigation">
+                <span aria-hidden="true">☰</span>
+            </button>
+        </div>
+    </header>
+
+    <div class="layout-container">
+        <aside class="sidebar">
+            <nav id="main-nav" aria-label="Main Navigation">
+                <ul>
+                    {% for item in nav_items %}
+                        <li>
+                            {% if item.enabled %}
+                                <a href="{{ item.url }}" class="nav-link {% if item.key == active_nav_key %}active{% endif %}" {% if item.key == active_nav_key %}aria-current="page"{% endif %}>{{ item.name }}</a>
+                            {% else %}
+                                <span class="nav-link disabled" aria-disabled="true">{{ item.name }}</span>
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            </nav>
+        </aside>
+
+        <main id="main-content" class="content" tabindex="-1" role="main">
+            {% if breadcrumbs %}
+            <nav aria-label="Breadcrumbs" class="breadcrumbs">
+                <ol>
+                    {% for crumb in breadcrumbs %}
+                        {% if crumb.url %}
+                            <li><a href="{{ crumb.url }}">{{ crumb.name }}</a></li>
+                        {% else %}
+                            <li aria-current="page">{{ crumb.name }}</li>
+                        {% endif %}
+                    {% endfor %}
+                </ol>
+            </nav>
+            {% endif %}
+
+            <header class="page-header">
+                <h2>{{ page_title }}</h2>
+            </header>
+
+            {% if dashboard_status %}
+                {{ warning_banner(dashboard_status) }}
+            {% endif %}
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                <div class="flash-messages mb-3">
+                  {% for category, message in messages %}
+                    <div class="alert alert-{{ category if category != 'error' else 'danger' }}" role="alert">
+                        {{ message }}
+                    </div>
+                  {% endfor %}
+                </div>
+              {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <footer role="contentinfo" class="site-footer">
+        <p>&copy; {{ project_name }} v{{ app_version }}</p>
+    </footer>
+
+    <script src="{{ url_for('dashboard.static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

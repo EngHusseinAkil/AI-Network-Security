@@ -1,0 +1,74 @@
+{% extends "dashboard/base.html" %}
+
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="threats-list">
+    {% if data.error %}
+        <div class="alert alert-danger" role="alert">
+            {{ data.error }}
+        </div>
+    {% endif %}
+
+    {% if not data.records %}
+        {{ empty_state('No threats found.', 'success') }}
+    {% else %}
+        <section aria-labelledby="threats-heading">
+            <h2 id="threats-heading" class="sr-only">Detected Threats</h2>
+            <div class="table-container">
+                <table class="table">
+                    <caption>List of detected threats</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Threat ID</th>
+                            <th scope="col">Timestamp</th>
+                            <th scope="col">Type</th>
+                            <th scope="col">Severity</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for threat in data.records %}
+                        <tr>
+                            <td>{{ threat.id }}</td>
+                            <td>{{ threat.timestamp }}</td>
+                            <td>{{ threat.threat_type }}</td>
+                            <td>
+                                {% if threat.severity|lower == 'high' or threat.severity|lower == 'critical' %}
+                                    <span class="badge badge-danger">{{ threat.severity }}</span>
+                                {% elif threat.severity|lower == 'medium' %}
+                                    <span class="badge badge-warning">{{ threat.severity }}</span>
+                                {% else %}
+                                    <span class="badge badge-info">{{ threat.severity }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ threat.status }}</td>
+                            <td><a href="/dashboard/threats/{{ threat.id }}" class="btn btn-sm btn-outline">View</a></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <nav aria-label="Pagination" class="mt-2">
+                <ul class="pagination pagination-list">
+                    {% if data.page > 1 %}
+                    <li><a href="?page={{ data.page - 1 }}&page_size={{ data.size }}">Previous</a></li>
+                    {% else %}
+                    <li class="disabled"><span aria-hidden="true">Previous</span></li>
+                    {% endif %}
+
+                    <li>Page {{ data.page }}</li>
+
+                    {% if data.records|length == data.size %}
+                    <li><a href="?page={{ data.page + 1 }}&page_size={{ data.size }}">Next</a></li>
+                    {% else %}
+                    <li class="disabled"><span aria-hidden="true">Next</span></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </section>
+    {% endif %}
+</div>
+{% endblock %}

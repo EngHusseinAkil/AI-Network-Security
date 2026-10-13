@@ -1,0 +1,252 @@
+{% extends "dashboard/base.html" %}
+
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="inference-page">
+    {% if error %}
+        <div class="alert alert-danger" role="alert">
+            {{ error }}
+        </div>
+    {% endif %}
+
+    <div class="grid grid-cols-2 gap-large">
+
+        <!-- Single Flow Form -->
+        {% call info_card('Single-Flow Inference', 'info') %}
+            {% if has_permission('flow_evaluate') %}
+            <form action="/dashboard/inference/flow" method="POST" id="single-flow-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+                <p class="form-help">Enter exact numerical features for a single network flow.</p>
+
+                <div class="form-group mb-1">
+                    <label for="duration">Duration (ms) <span class="required" aria-hidden="true">*</span></label>
+                    <input type="number" step="any" id="duration" name="duration" required value="{{ form.duration if form else '' }}">
+                </div>
+
+                <div class="form-group mb-1">
+                    <label for="packet_count">Packet Count <span class="required" aria-hidden="true">*</span></label>
+                    <input type="number" step="1" id="packet_count" name="packet_count" required value="{{ form.packet_count if form else '' }}">
+                </div>
+
+                <div class="form-group mb-1">
+                    <label for="byte_count">Byte Count <span class="required" aria-hidden="true">*</span></label>
+                    <input type="number" step="1" id="byte_count" name="byte_count" required value="{{ form.byte_count if form else '' }}">
+                </div>
+
+                <div class="form-group mb-1">
+                    <label for="min_packet_size">Min Packet Size <span class="required" aria-hidden="true">*</span></label>
+                    <input type="number" step="1" id="min_packet_size" name="min_packet_size" required value="{{ form.min_packet_size if form else '' }}">
+                </div>
+
+                <div class="form-group mb-1">
+                    <label for="max_packet_size">Max Packet Size <span class="required" aria-hidden="true">*</span></label>
+                    <input type="number" step="1" id="max_packet_size" name="max_packet_size" required value="{{ form.max_packet_size if form else '' }}">
+                </div>
+
+                <div class="form-group mb-1">
+                    <label for="avg_packet_size">Avg Packet Size <span class="required" aria-hidden="true">*</span></label>
+                    <input type="number" step="any" id="avg_packet_size" name="avg_packet_size" required value="{{ form.avg_packet_size if form else '' }}">
+                </div>
+
+                <div class="form-group mb-1">
+                    <label for="protocol_enc">Protocol Encoded (e.g., TCP=1, UDP=2) <span class="required" aria-hidden="true">*</span></label>
+                    <input type="number" step="1" id="protocol_enc" name="protocol_enc" required value="{{ form.protocol_enc if form else '' }}">
+                </div>
+
+                <div class="form-group mb-2">
+                    <label for="direction_enc">Direction Encoded (e.g., Inbound=3) <span class="required" aria-hidden="true">*</span></label>
+                    <input type="number" step="1" id="direction_enc" name="direction_enc" required value="{{ form.direction_enc if form else '' }}">
+                </div>
+
+                <button type="submit" class="btn btn-primary">Predict Flow</button>
+            </form>
+            {% endif %}
+        {% endcall %}
+
+        <!-- Batch Flow Form -->
+        {% call info_card('Batch-Flow Inference', 'info') %}
+            {% if has_permission('flow_evaluate') %}
+            <form action="/dashboard/inference/flows" method="POST" id="batch-flow-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+                <p class="form-help">Submit a JSON batch payload. Must contain a top-level <code>flows</code> array.</p>
+
+                <div class="form-group mb-2">
+                    <label for="batch_data">Batch JSON Payload <span class="required" aria-hidden="true">*</span></label>
+                    <textarea id="batch_data" name="batch_data" rows="12" required placeholder='{"flows": [{"duration": 10.0, "packet_count": 5, "byte_count": 300, "min_packet_size": 40, "max_packet_size": 100, "avg_packet_size": 60.0, "protocol_enc": 1, "direction_enc": 2}]}'>{{ form.get('batch_data', '') if form else '' }}</textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Predict Batch</button>
+            </form>
+            {% endif %}
+        {% endcall %}
+
+    </div>
+
+    <!-- Results Section -->
+    {% if result %}
+    <div class="mt-4" id="inference-results" tabindex="-1">
+        <h3 class="mb-2">Inference Results</h3>
+
+        <div class="alert alert-warning mb-2" role="alert">
+            <span class="alert-icon" aria-hidden="true">ℹ️</span>
+            <div class="alert-content">
+                <strong>Scientific Disclaimer:</strong> Model output is not certainty. Confidence is the model's probability for the predicted class. Risk is the non-benign probability. No prediction authorizes blocking.
+            </div>
+        </div>
+
+        {% if result.single %}
+            {% set s = result.single %}
+            <div class="table-container">
+                <table class="table">
+                    <caption>Single Flow Prediction Result</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Predicted Label</th>
+                            <th scope="col">Encoded Class</th>
+                            <th scope="col">Confidence Score</th>
+                            <th scope="col">Risk Score</th>
+                            <th scope="col">Model Version</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>{{ s.predicted_canonical_label }}</strong></td>
+                            <td>{{ s.predicted_encoded_class }}</td>
+                            <td>{{ "%.4f"|format(s.confidence_score) if s.confidence_score else 'N/A' }}</td>
+                            <td>{{ "%.4f"|format(s.risk_score) if s.risk_score else 'N/A' }}</td>
+                            <td>{{ s.model_version }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+        {% elif result.batch %}
+            {% set b = result.batch %}
+            <div class="grid grid-cols-3 gap-medium mb-2">
+                <div class="info-card">
+                    <h4>Total Count</h4>
+                    <p>{{ b.count }}</p>
+                </div>
+                <div class="info-card">
+                    <h4>Model Version</h4>
+                    <p>{{ b.model_version }}</p>
+                </div>
+                <div class="info-card">
+                    <h4>Avg Latency (s)</h4>
+                    <p>{{ "%.4f"|format(b.inference_latency.average_seconds_per_row) }}</p>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="table">
+                    <caption>Batch Flow Prediction Results</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">#</th>
+                            <th scope="col">Predicted Label</th>
+                            <th scope="col">Confidence Score</th>
+                            <th scope="col">Risk Score</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in b.predictions %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td><strong>{{ p.predicted_canonical_label }}</strong></td>
+                            <td>{{ "%.4f"|format(p.confidence_score) if p.confidence_score else 'N/A' }}</td>
+                            <td>{{ "%.4f"|format(p.risk_score) if p.risk_score else 'N/A' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+
+        <!-- Alert Policy Recommendation -->
+        {% if result.recommendation %}
+            <div class="mt-4" id="alert-recommendation" tabindex="-1">
+                <h3 class="mb-2">Alert Policy Recommendation</h3>
+
+                <div class="alert alert-info mb-2" role="alert">
+                    <span class="alert-icon" aria-hidden="true">🛡️</span>
+                    <div class="alert-content">
+                        <strong>Notice:</strong> This is a policy recommendation only. No alert was created, no alert was persisted, no notification was sent, and no traffic or device was blocked.
+                    </div>
+                </div>
+
+                {% if not result.recommendation.available %}
+                    <div class="alert alert-danger" role="alert">
+                        {{ result.recommendation.error }}
+                    </div>
+                {% else %}
+                    {% set r = result.recommendation %}
+                    <div class="grid grid-cols-2 gap-medium">
+                        <div class="info-card">
+                            <h4>Recommendation</h4>
+                            <p>
+                                {% if r.should_create_alert %}
+                                    <span class="badge badge-danger">Create Alert</span>
+                                {% else %}
+                                    <span class="badge badge-success">No Alert Required</span>
+                                {% endif %}
+                            </p>
+                        </div>
+
+                        <div class="info-card">
+                            <h4>Proposed Type</h4>
+                            <p>{{ r.proposed_type }}</p>
+                        </div>
+
+                        <div class="info-card">
+                            <h4>Proposed Severity</h4>
+                            <p>
+                                {% if r.proposed_severity == 'critical' %}
+                                    <span class="badge badge-danger">Critical</span>
+                                {% elif r.proposed_severity == 'high' %}
+                                    <span class="badge badge-warning">High</span>
+                                {% elif r.proposed_severity == 'medium' %}
+                                    <span class="badge badge-warning">Medium</span>
+                                {% elif r.proposed_severity == 'low' %}
+                                    <span class="badge badge-info">Low</span>
+                                {% else %}
+                                    <span>{{ r.proposed_severity }}</span>
+                                {% endif %}
+                            </p>
+                        </div>
+
+                        <div class="info-card">
+                            <h4>Reason</h4>
+                            <p><code>{{ r.reason_code }}</code></p>
+                        </div>
+                    </div>
+
+                        <div class="info-card mt-2">
+                            <h4>Explanation</h4>
+                            <p>{{ r.explanation }}</p>
+                            <small class="text-muted">Policy Version: {{ r.policy_version }} | Cooldown: {{ r.cooldown_status }} | Suppression: {{ r.suppression_status }}</small>
+                        </div>
+
+                        {% if r.should_create_alert and r.recommendation_token and has_permission('alert_create') %}
+                        <form action="/dashboard/alerts/from-recommendation" method="POST" class="mt-3" id="create-alert-form">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <input type="hidden" name="recommendation_token" value="{{ r.recommendation_token }}">
+
+                            <div class="alert alert-warning mb-2" role="alert">
+                                <strong>Action Required:</strong> Clicking the button below will explicitly create this alert. No notifications will be sent and no blocking will occur.
+                            </div>
+
+                            <button type="submit" class="btn btn-danger">Create Alert</button>
+                        </form>
+                        {% endif %}
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,143 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Alerts - AI Network Security{% endblock %}
+
+{% block content %}
+<header class="mb-8 flex justify-between items-center">
+    <div>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{{ title }}</h1>
+        <p class="text-gray-500 dark:text-gray-400 mt-2">View and filter generated alerts.</p>
+    </div>
+</header>
+
+<!-- Filters -->
+<section class="mb-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+    <form method="GET" action="{{ url_for('dashboard.alerts_list') }}" class="flex flex-wrap gap-4 items-end">
+        <div>
+            <label for="status" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+            <select name="status" id="status" class="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                <option value="">All</option>
+                <option value="new" {% if filters.get('status') == 'new' %}selected{% endif %}>New</option>
+                <option value="acknowledged" {% if filters.get('status') == 'acknowledged' %}selected{% endif %}>Acknowledged</option>
+                <option value="resolved" {% if filters.get('status') == 'resolved' %}selected{% endif %}>Resolved</option>
+                <option value="dismissed" {% if filters.get('status') == 'dismissed' %}selected{% endif %}>Dismissed</option>
+            </select>
+        </div>
+        <div>
+            <label for="severity" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Severity</label>
+            <select name="severity" id="severity" class="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                <option value="">All</option>
+                <option value="info" {% if filters.get('severity') == 'info' %}selected{% endif %}>Info</option>
+                <option value="low" {% if filters.get('severity') == 'low' %}selected{% endif %}>Low</option>
+                <option value="medium" {% if filters.get('severity') == 'medium' %}selected{% endif %}>Medium</option>
+                <option value="high" {% if filters.get('severity') == 'high' %}selected{% endif %}>High</option>
+                <option value="critical" {% if filters.get('severity') == 'critical' %}selected{% endif %}>Critical</option>
+            </select>
+        </div>
+        <div>
+            <label for="alert_type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Alert Type</label>
+            <select name="alert_type" id="alert_type" class="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                <option value="">All</option>
+                <option value="suspected_ddos" {% if filters.get('alert_type') == 'suspected_ddos' %}selected{% endif %}>Suspected DDoS</option>
+                <option value="suspected_port_scan" {% if filters.get('alert_type') == 'suspected_port_scan' %}selected{% endif %}>Port Scan</option>
+                <option value="suspected_brute_force" {% if filters.get('alert_type') == 'suspected_brute_force' %}selected{% endif %}>Brute Force</option>
+                <option value="suspected_botnet" {% if filters.get('alert_type') == 'suspected_botnet' %}selected{% endif %}>Botnet</option>
+                <option value="suspected_malware" {% if filters.get('alert_type') == 'suspected_malware' %}selected{% endif %}>Malware</option>
+                <option value="suspicious_unknown" {% if filters.get('alert_type') == 'suspicious_unknown' %}selected{% endif %}>Unknown Suspicious</option>
+            </select>
+        </div>
+        <div>
+            <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                Apply Filters
+            </button>
+            <a href="{{ url_for('dashboard.alerts_list') }}" class="ml-2 inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white dark:border-gray-600 dark:hover:bg-gray-600">
+                Clear
+            </a>
+        </div>
+    </form>
+</section>
+
+<!-- Alerts Table -->
+<section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <caption class="sr-only">List of security alerts</caption>
+            <thead class="bg-gray-50 dark:bg-gray-900">
+                <tr>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Public ID</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Title</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Severity</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Type</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created At</th>
+                    <th scope="col" class="relative px-6 py-3"><span class="sr-only">View Detail</span></th>
+                </tr>
+            </thead>
+            <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {% if records %}
+                    {% for item in records %}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white font-mono">{{ item.public_alert_id[:8] }}...</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">{{ item.title }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                                {% if item.status == 'new' %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200
+                                {% elif item.status == 'acknowledged' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200
+                                {% elif item.status == 'resolved' %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200
+                                {% elif item.status == 'dismissed' %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ item.status.title() }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                                {% if item.severity == 'critical' %}bg-red-200 text-red-900
+                                {% elif item.severity == 'high' %}bg-orange-100 text-orange-800
+                                {% elif item.severity == 'medium' %}bg-yellow-100 text-yellow-800
+                                {% elif item.severity == 'low' %}bg-blue-100 text-blue-800
+                                {% elif item.severity == 'info' %}bg-gray-100 text-gray-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ item.severity.title() }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{{ item.alert_type }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">{{ item.created_at }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <a href="{{ url_for('dashboard.alert_detail', alert_id=item.public_alert_id) }}" class="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300">View<span class="sr-only">, {{ item.public_alert_id }}</span></a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="7" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                            No alerts found matching your criteria.
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if total > 0 %}
+    <!-- Pagination -->
+    <div class="px-6 py-4 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <div class="text-sm text-gray-700 dark:text-gray-300">
+            Showing page <span class="font-medium">{{ page }}</span> of roughly <span class="font-medium">{{ (total / size)|round(0, 'ceil')|int }}</span>
+        </div>
+        <div class="flex gap-2">
+            {% if page > 1 %}
+            <a href="{{ url_for('dashboard.alerts_list', page=page-1, page_size=size, status=filters.get('status'), severity=filters.get('severity'), alert_type=filters.get('alert_type')) }}" class="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Previous</a>
+            {% else %}
+            <span class="px-3 py-1 border border-gray-200 dark:border-gray-700 rounded text-sm text-gray-400 dark:text-gray-600 cursor-not-allowed">Previous</span>
+            {% endif %}
+
+            {% if (page * size) < total %}
+            <a href="{{ url_for('dashboard.alerts_list', page=page+1, page_size=size, status=filters.get('status'), severity=filters.get('severity'), alert_type=filters.get('alert_type')) }}" class="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Next</a>
+            {% else %}
+            <span class="px-3 py-1 border border-gray-200 dark:border-gray-700 rounded text-sm text-gray-400 dark:text-gray-600 cursor-not-allowed">Next</span>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

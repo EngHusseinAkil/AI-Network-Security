@@ -1,0 +1,18 @@
+{% extends "dashboard/base.html" %}
+{% from "dashboard/components/macros.html" import info_card, empty_state %}
+
+{% block content %}
+<section class="overview-section">
+    <div class="card-grid">
+        {% call info_card("System Status") %}
+            <p>Phase 6 Dashboard Foundation layout and components are loaded.</p>
+            <p><strong>Available API:</strong> <code>/api/{{ api_version }}</code></p>
+            <p><strong>Next capabilities:</strong> Data Integration</p>
+        {% endcall %}
+
+        {% call info_card("AI Readiness") %}
+            {{ empty_state("Not Connected", "Monitoring and data fetching are not enabled yet.") }}
+        {% endcall %}
+    </div>
+</section>
+{% endblock %}

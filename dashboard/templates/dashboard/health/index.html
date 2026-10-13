@@ -1,0 +1,33 @@
+{% extends "dashboard/base.html" %}
+{% from "dashboard/components/macros.html" import info_card, status_badge, empty_state, data_table, warning_banner %}
+
+{% block content %}
+<section class="health-overview">
+    <div class="card-grid">
+        {% for summary in [system_summary, ai_summary, backend_summary] %}
+        {% call info_card(summary.name) %}
+            <div class="health-summary-status">
+                <p>Status: {{ status_badge(summary.overall_status, summary.overall_status | capitalize) }}</p>
+                {% if summary.message %}
+                    <p class="health-message">{{ summary.message }}</p>
+                {% endif %}
+                <p>Total Checks: <strong>{{ summary.total_checks }}</strong></p>
+                <a href="{{ url_for('dashboard.health_' + summary.name.split()[0].lower()) }}" class="nav-link">View Details &rarr;</a>
+            </div>
+        {% endcall %}
+        {% endfor %}
+    </div>
+
+    {% if ai_summary.overall_status == 'danger' or ai_summary.overall_status == 'info' %}
+        <div class="section-spacing">
+            {{ warning_banner("No active model is loaded. AI Threat Detection is currently unavailable.") }}
+        </div>
+    {% endif %}
+
+    {% if backend_summary.overall_status == 'warning' %}
+        <div class="section-spacing">
+            {{ warning_banner("Backend is using development-only configurations (e.g. in-memory rate limiting).") }}
+        </div>
+    {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends "dashboard/base.html" %}
+
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="device-detail">
+    {% if data.error %}
+        <div class="alert alert-danger" role="alert">
+            {{ data.error }}
+        </div>
+    {% endif %}
+
+    {% if data.item %}
+        {% set device = data.item %}
+        <div class="grid grid-cols-2 gap-large">
+            {% call info_card('Device Information', 'info') %}
+                <dl class="detail-list">
+                    <dt>Device ID</dt>
+                    <dd>{{ device.id }}</dd>
+
+                    <dt>IP Address</dt>
+                    <dd>{{ device.ip_address or 'Unknown' }}</dd>
+
+                    <dt>MAC Address</dt>
+                    <dd>{{ device.mac_address or 'Unknown' }}</dd>
+
+                    <dt>First Seen</dt>
+                    <dd>{{ device.first_seen }}</dd>
+
+                    <dt>Last Seen</dt>
+                    <dd>{{ device.last_seen }}</dd>
+                </dl>
+            {% endcall %}
+        </div>
+
+        <div class="mt-2">
+            <a href="/dashboard/devices" class="btn btn-outline">Back to Devices</a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

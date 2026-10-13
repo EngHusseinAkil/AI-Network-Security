@@ -1,0 +1,66 @@
+{% extends "dashboard/base.html" %}
+
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="devices-list">
+    {% if data.error %}
+        <div class="alert alert-danger" role="alert">
+            {{ data.error }}
+        </div>
+    {% endif %}
+
+    {% if not data.records %}
+        {{ empty_state('No devices found.', 'info') }}
+    {% else %}
+        <section aria-labelledby="devices-heading">
+            <h2 id="devices-heading" class="sr-only">Devices</h2>
+            <div class="table-container">
+                <table class="table">
+                    <caption>List of seen devices</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Device ID</th>
+                            <th scope="col">IP Address</th>
+                            <th scope="col">MAC Address</th>
+                            <th scope="col">First Seen</th>
+                            <th scope="col">Last Seen</th>
+                            <th scope="col">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for device in data.records %}
+                        <tr>
+                            <td>{{ device.id }}</td>
+                            <td>{{ device.ip_address or 'Unknown' }}</td>
+                            <td>{{ device.mac_address or 'Unknown' }}</td>
+                            <td>{{ device.first_seen }}</td>
+                            <td>{{ device.last_seen }}</td>
+                            <td><a href="/dashboard/devices/{{ device.id }}" class="btn btn-sm btn-outline">View</a></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <nav aria-label="Pagination" class="mt-2">
+                <ul class="pagination pagination-list">
+                    {% if data.page > 1 %}
+                    <li><a href="?page={{ data.page - 1 }}&page_size={{ data.size }}">Previous</a></li>
+                    {% else %}
+                    <li class="disabled"><span aria-hidden="true">Previous</span></li>
+                    {% endif %}
+
+                    <li>Page {{ data.page }}</li>
+
+                    {% if data.records|length == data.size %}
+                    <li><a href="?page={{ data.page + 1 }}&page_size={{ data.size }}">Next</a></li>
+                    {% else %}
+                    <li class="disabled"><span aria-hidden="true">Next</span></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </section>
+    {% endif %}
+</div>
+{% endblock %}

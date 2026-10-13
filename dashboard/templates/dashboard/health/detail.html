@@ -1,0 +1,54 @@
+{% extends "dashboard/base.html" %}
+{% from "dashboard/components/macros.html" import info_card, status_badge, empty_state, warning_banner, data_table %}
+
+{% block content %}
+<section class="health-detail">
+    {% call info_card(subsystem_name + " Status") %}
+        <p>Overall Status: {{ status_badge(overall_status, overall_status | capitalize) }}</p>
+        {% if readiness_level %}
+            <p>Readiness: <strong>{{ readiness_level }}</strong></p>
+        {% endif %}
+        {% if message %}
+            <p>{{ message }}</p>
+        {% endif %}
+
+        <div class="summary-counts">
+            <span class="badge badge-success">Passed: {{ summary_counts.success }}</span>
+            <span class="badge badge-warning">Warnings: {{ summary_counts.warning }}</span>
+            <span class="badge badge-danger">Failed: {{ summary_counts.danger }}</span>
+            <span class="badge badge-info">Info/Skipped: {{ summary_counts.info }}</span>
+        </div>
+    {% endcall %}
+
+    <h3 class="section-spacing">Individual Checks</h3>
+    <div class="table-responsive" tabindex="0" role="region" aria-label="Health checks table">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th scope="col">Component</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Message</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for check in checks %}
+                <tr>
+                    <td>{{ check.component }}</td>
+                    <td>{{ status_badge(check.ui_status, check.status | capitalize) }}</td>
+                    <td>
+                        {{ check.message }}
+                        {% if check.remediation %}
+                            <br><small class="text-muted"><em>Hint: {{ check.remediation }}</em></small>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3" class="table-empty">No checks available for this subsystem.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

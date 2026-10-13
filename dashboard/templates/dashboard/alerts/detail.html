@@ -1,0 +1,252 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Alert Detail - AI Network Security{% endblock %}
+
+{% block content %}
+<header class="mb-8 flex justify-between items-start">
+    <div>
+        <div class="flex items-center gap-3 mb-2">
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{{ item.title }}</h1>
+            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                {% if item.status == 'new' %}bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200
+                {% elif item.status == 'acknowledged' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200
+                {% elif item.status == 'resolved' %}bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200
+                {% elif item.status == 'dismissed' %}bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300
+                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                {{ item.status.title() }}
+            </span>
+        </div>
+        <p class="text-sm font-mono text-gray-500 dark:text-gray-400">ID: {{ item.public_alert_id }}</p>
+    </div>
+    <div class="flex gap-2">
+        <a href="{{ url_for('dashboard.alerts_list') }}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 dark:hover:bg-gray-600">
+            Back to List
+        </a>
+    </div>
+</header>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="mb-6 space-y-2">
+    {% for category, message in messages %}
+      <div class="p-4 rounded-md {% if category == 'error' %}bg-red-50 text-red-700 border-red-200{% else %}bg-green-50 text-green-700 border-green-200{% endif %} border">
+        {{ message }}
+      </div>
+    {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+<!-- Lifecycle Actions -->
+<section class="mb-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+    <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Notification</h2>
+    <p>
+        Notifications are {{ 'enabled' if notification.enabled else 'disabled' }}.
+        Recipient: {{ notification.recipient_label }}.
+    </p>
+    <p>
+        This alert is AI-assisted and is not proof of malicious activity.
+        Sending a notification requires an explicit operator action and does not block traffic.
+        Failed delivery does not alter the alert.
+    </p>
+    {% if notification.request_token and has_permission('notification_send') %}
+    <form method="POST" action="{{ url_for('dashboard.alert_notification', alert_id=item.public_alert_id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="notification_request_token" value="{{ notification.request_token }}">
+        <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+            Send notification
+        </button>
+    </form>
+    {% endif %}
+    {% if notification.recent_deliveries %}
+    <h3 class="font-semibold mt-4">Recent delivery attempts</h3>
+    <ul>
+        {% for delivery in notification.recent_deliveries %}
+        <li>{{ delivery.requested_at }}: {{ delivery.status }}{% if delivery.safe_error_category %} ({{ delivery.safe_error_category }}){% endif %}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+</section>
+
+<section class="mb-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+    <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Defensive action</h2>
+    <p><strong>Development/demo control only.</strong> Blocking is a manual operator action.</p>
+    <p>
+        AI output alone does not prove malicious activity. Incorrect blocking may disrupt
+        legitimate traffic. No permanent block is created and no automatic removal worker
+        is running. The demo provider performs no real network change.
+    </p>
+    <p>
+        Status: {{ 'enabled' if defense.enabled else 'disabled' }}.
+        {% if defense.recommendation.eligible %}
+        Target: {{ defense.recommendation.masked_target_label }}.
+        Recommended duration: {{ defense.recommendation.duration_seconds // 60 }} minutes.
+        {% else %}
+        Ineligible: {{ defense.recommendation.ineligibility_reason }}.
+        {% endif %}
+    </p>
+    {% if defense.apply_token and has_permission('defensive_action_apply') %}
+    <form method="POST" action="{{ url_for('dashboard.apply_defensive_action', alert_id=item.public_alert_id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="defensive_confirmation_token" value="{{ defense.apply_token }}">
+        <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700">Apply temporary deny</button>
+    </form>
+    {% endif %}
+    {% if defense.recent_actions %}
+    <h3 class="font-semibold mt-4">Recent defensive actions</h3>
+    <ul>
+        {% for action in defense.recent_actions %}
+        <li>
+            {{ action.requested_at }}: {{ action.status }} for {{ action.masked_target_label }}
+            {% if action.expires_at %}(expires {{ action.expires_at }}){% endif %}
+            {% if action.remove_token and has_permission('defensive_action_remove') %}
+            <form method="POST" action="{{ url_for('dashboard.remove_defensive_action', alert_id=item.public_alert_id, action_id=action.action_id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="defensive_removal_token" value="{{ action.remove_token }}">
+                <button type="submit" class="inline-flex items-center px-3 py-1 border rounded-md">Remove action</button>
+            </form>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+</section>
+
+{% if item.status in ['new', 'acknowledged'] %}
+<section class="mb-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+    <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Lifecycle Actions</h2>
+    {% if has_permission('alert_lifecycle_manage') %}
+    <div class="flex gap-4">
+        {% if item.status == 'new' %}
+        <form method="POST" action="{{ url_for('dashboard.alert_acknowledge', alert_id=item.public_alert_id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="expected_version" value="{{ item.version }}">
+            <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                Acknowledge Alert
+            </button>
+        </form>
+        {% endif %}
+
+        <form method="GET" action="{{ url_for('dashboard.alert_confirm_action', alert_id=item.public_alert_id, action='resolve') }}">
+            <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700">
+                Resolve Alert
+            </button>
+        </form>
+
+        <form method="GET" action="{{ url_for('dashboard.alert_confirm_action', alert_id=item.public_alert_id, action='dismiss') }}">
+            <button type="submit" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 dark:bg-gray-700 dark:text-white dark:border-gray-600 dark:hover:bg-gray-600">
+                Dismiss Alert
+            </button>
+        </form>
+    </div>
+    {% endif %}
+</section>
+{% endif %}
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <!-- Main Info -->
+    <div class="space-y-8">
+        <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Details</h2>
+            <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-6">
+                <div class="sm:col-span-2">
+                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Description</dt>
+                    <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ item.description }}</dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Type</dt>
+                    <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ item.alert_type }}</dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Severity</dt>
+                    <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ item.severity.title() }}</dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Source Category</dt>
+                    <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ item.source_category }}</dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Occurrence Count</dt>
+                    <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ item.occurrence_count }}</dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Reason Code</dt>
+                    <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ item.reason_code or 'N/A' }}</dd>
+                </div>
+            </dl>
+        </section>
+
+        <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Timestamps</h2>
+            <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-6">
+                <div>
+                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Created At</dt>
+                    <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ item.created_at or 'N/A' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Acknowledged At</dt>
+                    <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ item.acknowledged_at or 'N/A' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Resolved At</dt>
+                    <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ item.resolved_at or 'N/A' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Dismissed At</dt>
+                    <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ item.dismissed_at or 'N/A' }}</dd>
+                </div>
+            </dl>
+        </section>
+    </div>
+
+    <!-- AI & Meta -->
+    <div class="space-y-8">
+        <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Inference & AI Context</h2>
+            <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-6">
+                <div>
+                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Predicted Label</dt>
+                    <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ item.predicted_label or 'N/A' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Model Version</dt>
+                    <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ item.model_version or 'N/A' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Confidence Score</dt>
+                    <dd class="mt-1 text-sm text-gray-900 dark:text-white">
+                        <div class="flex items-center">
+                            <span class="mr-2">{{ (item.confidence_score * 100)|round(1) }}%</span>
+                            <progress class="score-progress confidence-progress"
+                                      value="{{ item.confidence_score }}" max="1"
+                                      aria-label="Confidence score"></progress>
+                        </div>
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Risk Score</dt>
+                    <dd class="mt-1 text-sm text-gray-900 dark:text-white">
+                        <div class="flex items-center">
+                            <span class="mr-2">{{ (item.risk_score * 100)|round(1) }}%</span>
+                            <progress class="score-progress risk-progress"
+                                      value="{{ item.risk_score }}" max="1"
+                                      aria-label="Risk score"></progress>
+                        </div>
+                    </dd>
+                </div>
+            </dl>
+        </section>
+
+        <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Metadata</h2>
+            <div class="bg-gray-50 dark:bg-gray-900 rounded p-4 overflow-x-auto">
+                <pre class="text-xs text-gray-800 dark:text-gray-300 font-mono">{{ item.safe_metadata | tojson(indent=2) }}</pre>
+            </div>
+            <div class="mt-4 text-xs text-gray-500">
+                <p>Schema Version: {{ item.schema_version or 'N/A' }}</p>
+                <p>Policy Version: {{ item.policy_version or 'N/A' }}</p>
+            </div>
+        </section>
+    </div>
+</div>
+{% endblock %}

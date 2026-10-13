@@ -1,0 +1,75 @@
+{% extends "dashboard/base.html" %}
+
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="models-overview">
+    {% if model_data.error %}
+        <div class="alert alert-danger" role="alert">
+            {{ model_data.error }}
+        </div>
+    {% endif %}
+
+    {% if not model_data.active_model and not model_data.models %}
+        {{ empty_state('No models are currently registered or active.', 'info') }}
+    {% else %}
+        <div class="grid grid-cols-2 section-gap-large">
+            {% call info_card('Registry Status', 'info') %}
+                <p><strong>Total Models Registered:</strong> {{ model_data.total_models }}</p>
+                {% if not model_data.active_model %}
+                    <p class="text-warning">No model is currently active.</p>
+                {% endif %}
+            {% endcall %}
+
+            {% if model_data.active_model %}
+            {% call info_card('Active Model Details', 'success') %}
+                <p><strong>Version:</strong> {{ model_data.active_model.get('model_version', 'Unknown') }}</p>
+                <p><strong>Schema Version:</strong> {{ model_data.active_model.get('schema_version', 'Unknown') }}</p>
+                <p><strong>Preprocessing Version:</strong> {{ model_data.active_model.get('preprocessing_version', 'Unknown') }}</p>
+                <p><strong>Feature Count:</strong> {{ model_data.active_model.get('expected_feature_count', 'Unknown') }}</p>
+
+                {% set labels = model_data.active_model.get('supported_labels', []) %}
+                <p><strong>Supported Labels:</strong> {{ labels|join(', ') if labels else 'None' }}</p>
+
+                {% if model_data.active_model.get('testing_only_fallback') %}
+                    <p class="text-danger mt-1"><strong>Warning:</strong> Running in testing fallback mode. Not suitable for production.</p>
+                {% endif %}
+            {% endcall %}
+            {% endif %}
+        </div>
+
+        {% if model_data.models %}
+        <section aria-labelledby="registered-models-heading">
+            <h2 id="registered-models-heading" class="mb-1">Registered Models</h2>
+            <div class="table-container">
+                <table class="table">
+                    <caption>List of all registered models in the registry</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Version</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Testing Fallback</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for model in model_data.models %}
+                        <tr>
+                            <td>{{ model.get('model_version', 'Unknown') }}</td>
+                            <td>
+                                {% if model_data.active_model and model.get('model_version') == model_data.active_model.get('model_version') %}
+                                    <span class="badge badge-success">Active</span>
+                                {% else %}
+                                    <span class="badge badge-info">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ 'Yes' if model.get('testing_only_fallback') else 'No' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        {% endif %}
+    {% endif %}
+</div>
+{% endblock %}

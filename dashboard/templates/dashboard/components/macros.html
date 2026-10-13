@@ -1,0 +1,82 @@
+{% macro status_badge(status, label) %}
+<span class="badge badge-{{ status }}" aria-label="Status: {{ label }}">
+    {% if status == 'success' %}
+        <span class="visually-hidden">Success:</span>
+    {% elif status == 'warning' %}
+        <span class="visually-hidden">Warning:</span>
+    {% elif status == 'danger' %}
+        <span class="visually-hidden">Danger:</span>
+    {% elif status == 'info' %}
+        <span class="visually-hidden">Info:</span>
+    {% endif %}
+    {{ label }}
+</span>
+{% endmacro %}
+
+{% macro info_card(title, icon=none) %}
+<article class="card">
+    <div class="card-header">
+        {% if icon %}<span class="card-icon" aria-hidden="true">{{ icon }}</span>{% endif %}
+        <h3 class="card-title">{{ title }}</h3>
+    </div>
+    <div class="card-body">
+        {{ caller() if caller else '' }}
+    </div>
+</article>
+{% endmacro %}
+
+{% macro empty_state(title, message) %}
+<div class="empty-state">
+    <div class="empty-state-icon" aria-hidden="true">∅</div>
+    <h3 class="empty-state-title">{{ title }}</h3>
+    <p class="empty-state-message">{{ message }}</p>
+</div>
+{% endmacro %}
+
+{% macro warning_banner(message) %}
+<div class="alert alert-warning" role="alert">
+    <span class="alert-icon" aria-hidden="true">⚠️</span>
+    <div class="alert-content">
+        <strong class="visually-hidden">Warning:</strong>
+        {{ message }}
+    </div>
+</div>
+{% endmacro %}
+
+{% macro data_table(headers, empty_message="No data available") %}
+<div class="table-responsive" tabindex="0" role="region" aria-label="Data table">
+    <table class="data-table">
+        <thead>
+            <tr>
+                {% for header in headers %}
+                <th scope="col">{{ header }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td colspan="{{ headers|length }}" class="table-empty">
+                    {{ empty_message }}
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+{% endmacro %}
+
+{% macro pagination() %}
+<nav class="pagination" aria-label="Pagination Navigation">
+    <ul class="pagination-list">
+        <li><button class="pagination-btn" disabled aria-disabled="true">Previous</button></li>
+        <li><span class="pagination-current" aria-current="page">1</span></li>
+        <li><button class="pagination-btn" disabled aria-disabled="true">Next</button></li>
+    </ul>
+</nav>
+{% endmacro %}
+
+{% macro loading_state(label="Loading...") %}
+<div class="loading-state" role="status" aria-live="polite">
+    <div class="spinner" aria-hidden="true"></div>
+    <span class="loading-text">{{ label }}</span>
+</div>
+{% endmacro %}

@@ -1,0 +1,166 @@
+{% extends "dashboard/base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col">
+            <h2>{{ page_title }}</h2>
+            <h5 class="text-muted text-break">ID: {{ record.cycle_id }}</h5>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('dashboard.monitoring_history_list') }}" class="btn btn-outline-secondary">Back to History</a>
+        </div>
+    </div>
+
+    <!-- Disclaimer -->
+    <div class="alert alert-info" role="alert">
+        <strong>Simulation Disclaimer:</strong> This represents a purely simulated event. No actual packet capture occurred. No alert was automatically persisted, no notification was sent, and no blocking occurred.
+    </div>
+    
+    {% if record.safe_error_category %}
+    <div class="alert alert-danger" role="alert">
+        <strong>Simulation Error:</strong> {{ record.safe_error_category }}
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <!-- Overview & Timing -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-light fw-bold">Simulation Overview</div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            State
+                            <span class="badge bg-{{ record.state_badge_class }}">{{ record.state_display }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Started At (UTC)
+                            <span>{{ record.started_at }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Completed At (UTC)
+                            <span>{{ record.completed_at }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Duration
+                            <span>{{ "%.2f"|format(record.duration_ms) }} ms</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Side-Effects Guarantees -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 border-success">
+                <div class="card-header bg-success text-white fw-bold">Side-Effect Isolation</div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Is Simulated
+                            <span class="badge bg-success">True</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Alert Persisted
+                            <span class="badge bg-secondary">False</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Notification Sent
+                            <span class="badge bg-secondary">False</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Blocking Executed
+                            <span class="badge bg-secondary">False</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Inference Summary -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-light fw-bold">Inference Details</div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Status
+                            <span class="badge bg-{{ 'success' if record.inference_status == 'success' else 'danger' }}">{{ record.inference_status }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Predicted Label
+                            <strong>{{ record.predicted_canonical_label or '—' }}</strong>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Confidence
+                            <span>
+                                {% if record.confidence_score is not none %}
+                                    {{ "%.4f"|format(record.confidence_score) }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Risk Score
+                            <span>
+                                {% if record.risk_score is not none %}
+                                    {{ "%.4f"|format(record.risk_score) }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center text-muted small">
+                            Model Version
+                            <span>{{ record.model_version or '—' }}</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Policy Summary -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-light fw-bold">Policy Evaluation Details</div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Status
+                            <span class="badge bg-{{ 'success' if record.policy_status == 'success' else 'secondary' if record.policy_status == 'unavailable' else 'danger' }}">{{ record.policy_status }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Alert Recommended
+                            {% if record.alert_recommended %}
+                                <span class="badge bg-primary">Yes</span>
+                            {% else %}
+                                <span class="badge bg-secondary">No</span>
+                            {% endif %}
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Proposed Type
+                            <span>{{ record.proposed_alert_type or '—' }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Proposed Severity
+                            <span>{{ record.proposed_severity or '—' }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Reason Code
+                            <span>{{ record.reason_code or '—' }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center text-muted small">
+                            Policy Version
+                            <span>{{ record.policy_version or '—' }}</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

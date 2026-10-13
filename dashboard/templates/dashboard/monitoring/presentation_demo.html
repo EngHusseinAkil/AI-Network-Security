@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Presentation Demo · AI-Assisted Network Security</title>
+    <link rel="stylesheet" href="{{ url_for('dashboard.static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('dashboard.static', filename='css/presentation-demo.css') }}">
+</head>
+<body class="presentation-body">
+<main class="presentation-shell" id="main-content">
+    <header class="presentation-header">
+        <div class="brand-lockup"><span class="brand-mark">✦</span><div><div class="eyebrow">AI-ASSISTED NETWORK SECURITY</div><h1>Presentation Demo</h1></div></div>
+        <div class="workflow" aria-label="Presentation workflow"><span class="active">01 FLOW</span><i>→</i><span class="active">02 FEATURES</span><i>→</i><span class="active">03 AI</span><i>→</i><span>04 POLICY</span><i>→</i><span>05 REVIEW</span><i>→</i><span>06 RESPONSE</span></div>
+        <div class="operator"><span class="demo-chip">DEMO MODE</span><strong>{{ operator_label }}</strong><span>{{ operator_role }}</span></div>
+    </header>
+
+    <section class="monitored-devices-panel" aria-labelledby="monitored-devices-heading">
+        <div class="section-heading">
+            <div><div class="eyebrow">DEVICE-FIRST MONITORING</div><h2 id="monitored-devices-heading">MONITORED DEVICES</h2></div>
+            <span class="schema-badge">{{ presentation.monitored_devices|length }} ACTIVE · {{ presentation.monitored_devices|length }} SELECTED · {{ presentation.evaluated_device_count }} EVALUATED · {{ presentation.waiting_device_count }} WAITING</span>
+        </div>
+        <div class="monitored-devices-grid">
+            {% for device in presentation.monitored_devices %}
+            <a class="monitored-device-card {% if device.ip_address == presentation.selected_device_ip %}selected{% endif %}"
+               href="{{ url_for('dashboard.presentation_demo', device_ip=device.ip_address) }}">
+                <strong>{{ device.hostname or 'Device name unavailable' }}</strong>
+                <span>{{ device.ip_address }}</span>
+                <small>{{ device.mac_address or 'MAC unavailable' }} · {{ device.status|capitalize }}</small>
+            </a>
+            {% else %}
+            <p class="muted">No connected hotspot devices are currently visible.</p>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="device-results-section" aria-label="Per-device evaluation results">
+        <div class="device-results-grid">
+            {% for card in presentation.device_cards %}
+            {% set device = card.device %}{% set e = card.evaluation %}{% set f = card.flow %}
+            <a class="device-result-card {% if device.ip_address == presentation.selected_device_ip %}selected{% endif %}"
+               href="{{ url_for('dashboard.presentation_demo', device_ip=device.ip_address) }}">
+                <div class="card-kicker"><span class="status-dot {% if card.waiting %}warning{% else %}safe{% endif %}"></span> MONITORED DEVICE</div>
+                <h3>{{ device.hostname or 'Device name unavailable' }}</h3>
+                <p class="device-address">{{ device.ip_address }}{% if device.mac_address %} · {{ device.mac_address }}{% endif %}</p>
+                {% if card.waiting %}
+                <div class="device-waiting"><strong>WAITING FOR TRAFFIC</strong><span>No evaluated flow available yet.</span></div>
+                {% else %}
+                <p class="device-flow-line">{{ f.protocol }} · {{ f.direction|upper }} · {{ f.packet_count }} packets</p>
+                <div class="device-prediction"><strong>{{ e.predicted_canonical_label|replace('_', ' ')|upper if e.predicted_canonical_label else 'UNAVAILABLE' }}</strong><span>Risk {{ '%.1f'|format((e.risk_score or 0) * 100) }}%</span></div>
+                <dl class="device-result-meta"><dt>AI</dt><dd>{{ e.inference_status|upper }}</dd><dt>Policy</dt><dd>{{ 'ALERT RECOMMENDED' if e.alert_recommended else 'NO ALERT' }}</dd><dt>Model</dt><dd>{{ e.model_version or '—' }}</dd></dl>
+                {% endif %}
+            </a>
+            {% else %}
+            <p class="muted">No selected devices are available for this monitoring session.</p>
+            {% endfor %}
+        </div>
+    </section>
+
+    {% if presentation.empty %}
+    <section class="empty-state">
+        <div class="empty-icon">⌁</div><div class="eyebrow">PRESENTATION READY</div><h2>No evaluation available</h2>
+        <p>Capture metadata, process the flow, and run an evaluation to populate this briefing surface.</p>
+        <div class="empty-steps"><span>01 Capture metadata</span><span>02 Process flow</span><span>03 Run evaluation</span></div>
+        <a class="action-button primary" href="{{ url_for('dashboard.monitoring_overview') }}">Open Monitoring</a>
+    </section>
+    {% elif not presentation.evaluation %}
+    <section class="empty-state">
+        <div class="empty-icon">⌁</div><div class="eyebrow">MONITORING IN PROGRESS</div><h2>Waiting for evaluated traffic</h2>
+        <p>At least one selected device is active, but no compatible evaluated flow is available for the detail view yet.</p>
+        <a class="action-button primary" href="{{ url_for('dashboard.monitoring_overview') }}">Open Monitoring</a>
+    </section>
+    {% else %}
+    {% set e = presentation.evaluation %}{% set f = presentation.flow %}
+    <section class="device-flow-banner" aria-label="Monitored device">
+        <div class="device-heading"><span class="panel-icon cyan">⌂</span><div><div class="eyebrow">MONITORED DEVICE</div><h2>{{ presentation.monitored_device.ip or 'UNAVAILABLE' }}</h2></div></div>
+        <div class="device-detail"><span>DEVICE NAME</span><strong>{{ presentation.monitored_device.name or 'Not resolved' }}</strong><small>{{ presentation.monitored_device.name_source or 'No authoritative name available' }}</small></div>
+        <div class="device-detail"><span>MAC</span><strong>{{ presentation.monitored_device.mac or 'Not available' }}</strong><small>{{ presentation.monitored_device.mac_source or 'Not present in captured/OS metadata' }}</small></div>
+        <div class="device-arrow">↓</div>
+    </section>
+    <section class="incident-grid">
+        <article class="incident-card">
+            <div class="card-kicker"><span class="status-dot warning"></span> {{ 'BENIGN / NORMAL ACTIVITY' if e.predicted_canonical_label == 'benign' else 'POTENTIALLY SUSPICIOUS ACTIVITY' }} <span class="slash">/</span> {{ e.predicted_canonical_label|replace('_', ' ')|upper if e.predicted_canonical_label else 'UNAVAILABLE' }} <span class="live-tag">LIVE EVALUATION</span></div>
+            <div class="incident-main"><div><div class="eyebrow">MODEL OUTPUT</div><h2>{{ e.predicted_canonical_label|replace('_', ' ')|upper if e.predicted_canonical_label else 'UNAVAILABLE' }}</h2><p class="muted">Metadata-only signal · {{ e.evaluation_id[:12] }}</p></div><div class="risk-ring"><strong>{{ '%.1f'|format((e.risk_score or 0) * 100) }}%</strong><span>RISK SCORE</span></div></div>
+            <div class="incident-metrics"><div><span>CONFIDENCE</span><strong>{{ '%.1f'|format((e.confidence_score or 0) * 100) }}%</strong></div><div><span>POLICY RECOMMENDATION</span><strong class="amber">{{ 'ALERT RECOMMENDED' if e.alert_recommended else 'NO ALERT' }}</strong></div><div><span>REASON CODE</span><strong>{{ e.reason_code|replace('_', ' ')|upper if e.reason_code else '—' }}</strong></div></div>
+        </article>
+        <aside class="status-card"><div class="card-kicker">SYSTEM STATUS <span class="status-dot safe"></span></div><dl><dt>MODEL</dt><dd>{{ e.model_version or '—' }}</dd><dt>INFERENCE</dt><dd class="safe-text">{{ e.inference_status|upper }}</dd><dt>DATA SOURCE</dt><dd>Metadata-only</dd><dt>RAW PAYLOAD</dt><dd>NOT RETAINED</dd></dl></aside>
+    </section>
+
+    <section class="explain-section"><div class="section-heading"><div><div class="eyebrow">INFERENCE TRACE</div><h2>How the model processes the flow</h2></div><span class="schema-badge">FLOW SCHEMA {{ e.flow_schema_version }}</span></div>
+        <div class="reasoning-grid">
+            <article class="panel flow-panel"><div class="panel-title"><span class="panel-icon cyan">↗</span><div><h3>Network flow</h3><p>Captured metadata window · flow_id {{ f.flow_id[:12] }}</p></div></div><div class="flow-stat"><strong>{{ f.protocol }}</strong><span>{{ f.direction|capitalize }}</span></div><div class="endpoint-route"><span>{{ f.source_ip or 'endpoint unavailable' }}</span><b>→</b><span>{{ f.destination_ip or 'endpoint unavailable' }}</span></div><div class="flow-numbers"><div><strong>{{ f.packet_count }}</strong><span>packets</span></div><div><strong>{{ f.total_bytes }}</strong><span>bytes</span></div><div><strong>{{ '%.2f'|format(f.duration_seconds) }}s</strong><span>duration</span></div></div></article>
+            <article class="panel feature-panel"><div class="panel-title"><span class="panel-icon cyan">▦</span><div><h3>8-feature vector</h3><p>Authoritative model input · exact inference order</p></div></div><div class="feature-grid">{% for name, value in presentation.features %}<div><span>{{ name }}</span><strong>{{ value }}</strong>{% if name == 'protocol_enc' %}<small>{{ f.protocol }}</small>{% elif name == 'direction_enc' %}<small>{{ f.direction }}</small>{% endif %}</div>{% endfor %}</div></article>
+            <article class="panel forest-panel"><div class="panel-title"><span class="panel-icon cyan">⌘</span><div><h3>Random forest</h3><p>LIVE INTEGRATION MODEL · {{ e.model_version or 'demo-1.0.0' }}</p></div></div><div class="forest-flow"><span>8 FEATURES</span><b>↓</b><div class="trees"><i>◆</i><i>◆</i><i>◆</i><i>◆</i><i>◆</i></div><b>↓</b><span>CLASS SUPPORT</span><b>↓</b><strong>{{ e.predicted_canonical_label|replace('_', ' ')|upper }}</strong></div><p class="disclaimer">Risk = 1 − P(benign). The prediction represents model support, not proof of malicious activity.</p><p class="advisory-line">Model output is advisory evidence, not proof of malicious activity.</p></article>
+        </div>
+    </section>
+
+    <section class="model-separation"><span>LIVE INTEGRATION MODEL · {{ e.model_version or 'demo-1.0.0' }}</span><b>≠</b><span>SCIENTIFIC CICIDS2017 EVALUATION · REPORTED SEPARATELY</span></section>
+    <section class="human-gate"><div class="gate-node"><span>AI OUTPUT</span><strong>{{ e.predicted_canonical_label|replace('_', ' ')|upper }}</strong></div><div class="gate-arrow">↓</div><div class="gate-node check"><span>POLICY CHECK</span><strong>{{ e.policy_status|upper }}</strong></div><div class="gate-arrow">↓</div><div class="gate-node human"><span>HUMAN GATE</span><strong>APPROVAL REQUIRED</strong></div></section>
+
+    <section class="response-section"><div class="section-heading"><div><div class="eyebrow">COMPANY RESPONSE PLAYBOOK</div><h2>What happens next</h2></div><p>Human-led · policy-dependent · auditable</p></div><div class="playbook">{% for number, title, text in [('01','INVESTIGATE','Review traffic and logs'),('02','VALIDATE','Confirm malicious or false positive'),('03','CONTAIN','Isolate / temporarily restrict if approved'),('04','ESCALATE','Notify incident-response personnel'),('05','RECORD','Acknowledge, resolve/dismiss, audit')] %}<article class="play-card {% if number == '02' %}branch-card{% endif %}"><span>{{ number }}</span><h3>{{ title }}</h3><p>{{ text }}</p>{% if number == '02' %}<div class="branch"><small>FALSE POSITIVE → Dismiss · No disruption</small><small>CONFIRMED / SUSPICIOUS → Contain · Escalate</small></div>{% endif %}</article>{% endfor %}</div><p class="footer-note">Enterprise response actions are policy-dependent. The current demo uses fake providers and performs no real firewall or external notification changes.</p></section>
+
+    <section class="operator-actions"><div><div class="eyebrow">OPERATOR CONTROL</div><h2>Review before action</h2></div><div class="button-row"><a class="action-button primary" href="{{ url_for('dashboard.monitoring_overview') }}">Review Alert</a>{% if presentation.recommendation_token and has_permission('alert_create') %}<form action="{{ url_for('dashboard.create_live_flow_recommendation_alert', evaluation_id=e.evaluation_id) }}" method="POST"><input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token') }}"><input type="hidden" name="recommendation_token" value="{{ presentation.recommendation_token }}"><button class="action-button warning" type="submit">Create Alert</button></form>{% endif %}</div></section>
+    {% endif %}
+    <footer class="role-strip">{% for role, description in [('viewer', 'Read only'), ('operator', 'Investigate + Alert Workflow'), ('admin', 'Administration + User Management')] %}<div class="{% if operator_role == role %}selected{% endif %}"><span>{{ role|upper }}</span><small>{{ description }}</small></div>{% endfor %}</footer>
+</main>
+</body>
+</html>

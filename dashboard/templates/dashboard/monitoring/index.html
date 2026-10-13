@@ -1,0 +1,404 @@
+{% extends "dashboard/base.html" %}
+
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+{% set m = monitoring %}
+<div class="monitoring-page">
+
+    {# ------------------------------------------------------------------ #}
+    {# State summary card                                                  #}
+    {# ------------------------------------------------------------------ #}
+    <div class="monitoring-status-panel"
+         id="monitoring-status-panel"
+         aria-live="polite"
+         aria-atomic="true"
+         data-poll-endpoint="{{ m.poll_endpoint }}"
+         data-poll-interval="{{ m.poll_interval_ms }}"
+         data-poll-min-interval="{{ m.poll_min_interval_ms }}"
+         data-poll-max-backoff="{{ m.poll_max_backoff_ms }}">
+
+        <div class="status-header">
+            <h3 id="monitoring-state-heading">Monitoring State</h3>
+            <div class="status-badge-row">
+                <span class="badge badge-{{ m.state_badge_class }}"
+                      id="monitoring-state-badge"
+                      aria-label="Current state">
+                    <span id="monitoring-state-text">{{ m.state_display }}</span>
+                </span>
+                <span class="enabled-indicator"
+                      id="monitoring-enabled-text"
+                      aria-label="Monitoring enabled status">
+                    {% if m.enabled %}Enabled{% else %}Disabled{% endif %}
+                </span>
+            </div>
+        </div>
+
+        {# Polling status notice — updated by JS, initially set from server #}
+        <p class="polling-notice"
+           id="monitoring-poll-notice"
+           aria-live="polite">
+            Live status polling is active on this page.
+            Updates every {{ (m.poll_interval_ms // 1000) }} seconds.
+        </p>
+
+        {# Note from service (e.g. "Monitoring is not yet enabled.") #}
+        {% if m.note %}
+        <p class="monitoring-note" id="monitoring-note-text">{{ m.note }}</p>
+        {% endif %}
+
+    </div>
+
+    {# ------------------------------------------------------------------ #}
+    {# Info grid                                                           #}
+    {# ------------------------------------------------------------------ #}
+    <div class="monitoring-grid">
+
+        {# Model version #}
+        {% call info_card('Active Model', 'info') %}
+        <dl class="info-dl">
+            <dt>Version</dt>
+            <dd id="mon-model-version">
+                {{ m.active_model_version if m.active_model_version else '—' }}
+            </dd>
+        </dl>
+        {% endcall %}
+
+        {# Health summary #}
+        {% call info_card('AI Health Summary', 'info') %}
+        <dl class="info-dl">
+            <dt>Overall status</dt>
+            <dd id="mon-health-status">
+                {{ m.health_summary.overall_status if m.health_summary else '—' }}
+            </dd>
+            <dt>Readiness level</dt>
+            <dd id="mon-readiness">
+                {{ m.health_summary.readiness_level if m.health_summary else '—' }}
+            </dd>
+        </dl>
+        {% endcall %}
+
+        {# Counters #}
+        {% call info_card('Counters', 'info') %}
+        <dl class="info-dl">
+            <dt>Flows processed</dt>
+            <dd id="mon-flow-count">{{ m.processed_flow_count }}</dd>
+            <dt>Predictions</dt>
+            <dd id="mon-pred-count">{{ m.prediction_count }}</dd>
+            <dt>Alerts</dt>
+            <dd id="mon-alert-count">{{ m.alert_count }}</dd>
+        </dl>
+        <hr>
+        <dl class="info-dl">
+            <dt>Simulated Cycles</dt>
+            <dd>{{ m.simulation_cycle_count }}</dd>
+            <dt>Simulated Flows</dt>
+            <dd>{{ m.simulated_flow_count }}</dd>
+            <dt>Sim. Recs</dt>
+            <dd>{{ m.simulation_recommendation_count }}</dd>
+        </dl>
+        <p class="counter-note">
+            Counters are zero until a monitoring engine runs.
+            No fabricated data is shown.
+        </p>
+        {% endcall %}
+
+        {# Timestamps #}
+        {% call info_card('Cycle Information', 'info') %}
+        <dl class="info-dl">
+            <dt>Last successful cycle</dt>
+            <dd id="mon-last-cycle">
+                {{ m.last_successful_cycle if m.last_successful_cycle else 'Never' }}
+            </dd>
+            <dt>Last error category</dt>
+            <dd id="mon-last-error">
+                {{ m.last_error_category if m.last_error_category else 'None' }}
+            </dd>
+            <dt>Status updated</dt>
+            <dd id="mon-updated-at">
+                {{ m.updated_at if m.updated_at else '—' }}
+            </dd>
+        </dl>
+        {% endcall %}
+
+    </div>{# /.monitoring-grid #}
+
+    <section class="capture-section" aria-labelledby="capture-heading">
+        <h3 id="capture-heading">Connected Devices</h3>
+        <p><strong>{{ capture.source_display }}</strong></p>
+        <dl class="info-dl">
+            <dt>Enabled</dt><dd>{{ 'Yes' if capture.enabled else 'No' }}</dd>
+            <dt>State</dt><dd>{{ capture.state }}</dd>
+            <dt>Packets</dt><dd>{{ capture.packet_count }}</dd>
+            <dt>Dropped metadata</dt><dd>{{ capture.dropped_metadata_count }}</dd>
+            <dt>Started</dt><dd>{{ capture.start_timestamp or 'Never' }}</dd>
+            <dt>Elapsed seconds</dt><dd>{{ capture.elapsed_duration or 0 }}</dd>
+            <dt>Stop reason</dt><dd>{{ capture.stop_reason or 'None' }}</dd>
+            <dt>Error category</dt><dd>{{ capture.error_category or 'None' }}</dd>
+        </dl>
+
+        {% if has_permission('monitoring_control') %}
+        <p class="capture-discovery-note">
+            The hotspot adapter is selected automatically from
+            <code>{{ config.LIVE_LOCAL_NETWORK_CIDR or 'LIVE_LOCAL_NETWORK_CIDR' }}</code>.
+            The underlying Npcap interface is not an operator choice.
+        </p>
+        <form action="{{ url_for('dashboard.capture_devices_refresh') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token') }}">
+            <button type="submit" class="btn btn-secondary">Refresh Devices</button>
+        </form>
+
+        {% if capture.enabled and capture.state == 'stopped' and capture.devices %}
+        <form action="{{ url_for('dashboard.capture_start') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token') }}">
+            <fieldset class="connected-devices-panel">
+                <legend>Connected devices</legend>
+                {% for device in capture.devices %}
+                <label class="connected-device-row">
+                    <input type="checkbox" name="selected_device_ip" value="{{ device.ip_address }}"
+                           {% if device.selected %}checked{% endif %}>
+                    <span>
+                        <strong>{{ device.hostname or 'Device name unavailable' }}</strong>
+                        <small>{{ device.ip_address }}{% if device.mac_address %} · {{ device.mac_address }}{% endif %}</small>
+                        <small>{{ device.status|capitalize }}</small>
+                    </span>
+                </label>
+                {% endfor %}
+            </fieldset>
+            <div class="device-selection-actions">
+                <button type="button" class="btn btn-secondary" data-device-select-all>Select All</button>
+                <button type="button" class="btn btn-secondary" data-device-clear-all>Clear All</button>
+            </div>
+            <button type="submit" class="btn btn-primary" aria-label="Start capture">Start Monitoring</button>
+        </form>
+        {% elif capture.enabled and capture.state == 'stopped' and capture.source == 'fake' and capture.interfaces %}
+        <form action="{{ url_for('dashboard.capture_start') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token') }}">
+            <input type="hidden" name="interface_key" value="{{ capture.interfaces[0].key }}">
+            <button type="submit" class="btn btn-primary" aria-label="Start capture">Start Monitoring (simulated)</button>
+        </form>
+        {% elif capture.enabled and capture.state == 'stopped' %}
+        <p>No connected hotspot devices have been discovered. Refresh devices or use the admin/debug interface fallback.</p>
+        {% endif %}
+
+        {% if has_permission('user_manage') and capture.interfaces and not capture.hotspot_interface_detected %}
+        <details class="admin-debug-fallback">
+            <summary>Administrator/debug interface fallback</summary>
+            <p>Automatic hotspot detection did not resolve exactly one adapter. Select a validated interface only for diagnosis.</p>
+            <form action="{{ url_for('dashboard.capture_start') }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token') }}">
+                <label for="capture-debug-interface-key">Validated interface</label>
+                <select id="capture-debug-interface-key" name="interface_key" required>
+                    {% for option in capture.interfaces %}<option value="{{ option.key }}">{{ option.display_label }}</option>{% endfor %}
+                </select>
+                <button type="submit" class="btn btn-secondary">Start debug capture</button>
+            </form>
+        </details>
+        {% endif %}
+
+        {% if capture.state in ('running', 'stopping') %}
+        <form action="{{ url_for('dashboard.capture_stop') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token') }}">
+            <button type="submit" class="btn btn-secondary"
+                    {% if capture.state == 'stopping' %}disabled aria-disabled="true"{% endif %}>
+                Stop capture
+            </button>
+        </form>
+        {% endif %}
+        {% endif %}
+    </section>
+
+    <section class="flow-processing-section" aria-labelledby="flow-processing-heading">
+        <h3 id="flow-processing-heading">Captured metadata processing</h3>
+        <p>
+            These records are metadata-only protocol/time-window aggregates.
+            Processing metadata does not confirm an attack. No raw payload is retained,
+            and no alert is automatically created.
+        </p>
+        {% if has_permission('flow_process') %}
+        <form action="{{ url_for('dashboard.process_captured_metadata') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token') }}">
+            <button type="submit" class="btn btn-secondary">Process captured metadata</button>
+        </form>
+        {% endif %}
+        <dl class="info-dl">
+            <dt>Metadata drained</dt><dd>{{ flow_processing.metadata_records_drained }}</dd>
+            <dt>Metadata processed</dt><dd>{{ flow_processing.metadata_records_processed }}</dd>
+            <dt>Processing failures</dt><dd>{{ flow_processing.metadata_processing_failures }}</dd>
+            <dt>Active metadata flows</dt><dd>{{ flow_processing.active_flow_count }}</dd>
+            <dt>Completed metadata flows</dt><dd>{{ flow_processing.completed_flow_count }}</dd>
+            <dt>Feature-compatible flows</dt><dd>{{ flow_processing.feature_vectors_created }}</dd>
+            <dt>Incompatible flows</dt><dd>{{ flow_processing.incompatible_flow_count }}</dd>
+        </dl>
+        {% if flow_processing.latest_completed_flow %}
+        {% set lf = flow_processing.latest_completed_flow %}
+        <h4>Latest completed metadata flow</h4>
+        <dl class="info-dl">
+            <dt>Protocol</dt><dd>{{ lf.protocol }}</dd>
+            <dt>Direction</dt><dd>{{ lf.direction }}</dd>
+            <dt>Packets</dt><dd>{{ lf.packet_count }}</dd>
+            <dt>Total bytes</dt><dd>{{ lf.total_bytes }}</dd>
+            <dt>Completion reason</dt><dd>{{ lf.completed_reason }}</dd>
+        </dl>
+        {% else %}
+        <p>No completed metadata flows are retained.</p>
+        {% endif %}
+    </section>
+
+    <section class="live-flow-evaluation-section" aria-labelledby="live-flow-evaluation-heading">
+        <h3 id="live-flow-evaluation-heading">Live metadata-flow evaluation</h3>
+        <p>
+            Evaluations use metadata-only aggregates; no raw payload is retained.
+            A recommendation is not proof of an attack. No alert is automatically
+            created, no notification is sent, and no blocking occurs.
+        </p>
+        {% if has_permission('flow_evaluate') %}
+        <form action="{{ url_for('dashboard.evaluate_live_metadata_flows') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token') }}">
+            <button type="submit" class="btn btn-secondary">Evaluate completed metadata flows</button>
+        </form>
+        {% endif %}
+        <dl class="info-dl">
+            <dt>Retained completed flows</dt><dd>{{ flow_processing.completed_flow_count }}</dd>
+            <dt>Eligible flows</dt><dd>{{ live_flow_evaluation.eligible_flow_count }}</dd>
+            <dt>Retained evaluations</dt><dd>{{ live_flow_evaluation.retained_evaluation_count }}</dd>
+            <dt>Incompatible flows</dt><dd>{{ live_flow_evaluation.evaluation_incompatible_flow_count }}</dd>
+            <dt>Recommendations</dt><dd>{{ live_flow_evaluation.live_recommendation_count }}</dd>
+            <dt>Eligible alert recommendations</dt><dd>{{ live_flow_evaluation.eligible_live_alert_recommendation_count }}</dd>
+            <dt>Manually created alerts</dt><dd>{{ live_flow_evaluation.manually_created_live_alert_count }}</dd>
+        </dl>
+        {% if live_flow_evaluation.latest_live_evaluation %}
+        {% set le = live_flow_evaluation.latest_live_evaluation %}
+        <h4>Latest evaluation</h4>
+        <dl class="info-dl">
+            <dt>Inference</dt><dd>{{ le.inference_status }}</dd>
+            <dt>Prediction</dt><dd>{{ le.predicted_canonical_label or 'Unavailable' }}</dd>
+            <dt>Risk score</dt><dd>{{ le.risk_score if le.risk_score is not none else 'Unavailable' }}</dd>
+            <dt>Policy</dt><dd>{{ le.policy_status }}</dd>
+            <dt>Recommendation</dt><dd>{{ 'Yes' if le.alert_recommended else 'No' }}</dd>
+            <dt>Safe error</dt><dd>{{ le.safe_error_category or 'None' }}</dd>
+        </dl>
+        <h4>Recent evaluations</h4>
+        <ul>
+            {% for evaluation in live_flow_evaluation.recent_live_evaluations %}
+            <li>
+                {{ evaluation.evaluated_at }}: {{ evaluation.inference_status }} / {{ evaluation.policy_status }}
+                {% if evaluation.persisted_alert_id %}
+                <a href="{{ url_for('dashboard.alert_detail', alert_id=evaluation.persisted_alert_id) }}">View created alert</a>
+                {% elif evaluation.recommendation_token and has_permission('alert_create') %}
+                <form action="{{ url_for('dashboard.create_live_flow_recommendation_alert', evaluation_id=evaluation.evaluation_id) }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token') }}">
+                    <input type="hidden" name="recommendation_token" value="{{ evaluation.recommendation_token }}">
+                    <button type="submit" class="btn btn-secondary">Create alert</button>
+                </form>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p>No live metadata-flow evaluations are retained.</p>
+        {% endif %}
+    </section>
+
+    {# ------------------------------------------------------------------ #}
+    {# Simulation Specific Area                                            #}
+    {# ------------------------------------------------------------------ #}
+    <div class="simulation-section">
+        <h3>Simulated Monitoring Event</h3>
+        <p class="simulation-disclaimer">
+            <strong>Disclaimer:</strong> This event is strictly simulated.
+            No packet capture occurred. No alert was created.
+            No notification was sent. No traffic or device was blocked.
+        </p>
+
+        {% if has_permission('flow_evaluate') %}
+        {% set sf = m.latest_simulation_result.features if m.latest_simulation_result and m.latest_simulation_result.features else {} %}
+        <form action="{{ url_for('dashboard.monitoring_simulate') }}" method="POST" class="simulation-form">
+            <input type="hidden" name="csrf_token" value="{{ session.get('_csrf_token') }}">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Duration (s)</label>
+                    <input type="number" step="any" name="duration" required value="{{ sf.get('duration', 10.0) }}">
+                </div>
+                <div class="form-group">
+                    <label>Packet Count</label>
+                    <input type="number" name="packet_count" required value="{{ sf.get('packet_count', 100) }}">
+                </div>
+                <div class="form-group">
+                    <label>Byte Count</label>
+                    <input type="number" name="byte_count" required value="{{ sf.get('byte_count', 5000) }}">
+                </div>
+                <div class="form-group">
+                    <label>Min Packet Size</label>
+                    <input type="number" name="min_packet_size" required value="{{ sf.get('min_packet_size', 40) }}">
+                </div>
+                <div class="form-group">
+                    <label>Max Packet Size</label>
+                    <input type="number" name="max_packet_size" required value="{{ sf.get('max_packet_size', 1500) }}">
+                </div>
+                <div class="form-group">
+                    <label>Avg Packet Size</label>
+                    <input type="number" step="any" name="avg_packet_size" required value="{{ sf.get('avg_packet_size', 50.0) }}">
+                </div>
+                <div class="form-group">
+                    <label>Protocol (Enc)</label>
+                    <input type="number" name="protocol_enc" required value="{{ sf.get('protocol_enc', 1) }}">
+                </div>
+                <div class="form-group">
+                    <label>Direction (Enc)</label>
+                    <input type="number" name="direction_enc" required value="{{ sf.get('direction_enc', 3) }}">
+                </div>
+            </div>
+            <button type="button" class="btn btn-secondary" data-simulation-preset='{"duration":10.0,"packet_count":10000,"byte_count":640000,"min_packet_size":64,"max_packet_size":64,"avg_packet_size":64.0,"protocol_enc":1,"direction_enc":3}'>SIMULATED DDoS-LIKE TRAFFIC</button>
+            <button type="submit" class="btn btn-primary">Run Simulation</button>
+        </form>
+        {% endif %}
+    </div>
+
+    {# ------------------------------------------------------------------ #}
+    {# Simulation Result (if any)                                          #}
+    {# ------------------------------------------------------------------ #}
+    {% if m.latest_simulation_result %}
+    {% set sr = m.latest_simulation_result %}
+    <div class="simulation-result">
+        <h4>Latest Simulation Result</h4>
+        <dl class="info-dl">
+            <dt>Cycle ID</dt><dd>{{ sr.simulation_cycle_id }}</dd>
+            <dt>State</dt><dd>{{ sr.state }}</dd>
+            <dt>Duration (ms)</dt><dd>{{ sr.duration | round(2) }}</dd>
+            <dt>Inference Status</dt><dd>{{ sr.inference_status }}</dd>
+            <dt>Predicted Label</dt><dd>{{ sr.predicted_canonical_label if sr.predicted_canonical_label else 'N/A' }}</dd>
+            <dt>Risk Score</dt><dd>{{ ((sr.risk_score * 100) | round(2)) if sr.risk_score is not none else 'N/A' }}%</dd>
+            <dt>Confidence</dt><dd>{{ ((sr.confidence * 100) | round(2)) if sr.confidence is not none else 'N/A' }}%</dd>
+            <dt>Policy Status</dt><dd>{{ sr.policy_status }}</dd>
+            <dt>Alert Recommended</dt><dd>{{ 'Yes' if sr.alert_recommended else 'No' }}</dd>
+            <dt>Proposed Type</dt><dd>{{ sr.proposed_alert_type if sr.proposed_alert_type else 'None' }}</dd>
+            <dt>Reason</dt><dd>{{ sr.reason_code if sr.reason_code else 'N/A' }}</dd>
+            <dt>Safe Error</dt><dd>{{ sr.safe_error_category if sr.safe_error_category else 'None' }}</dd>
+            <dt>Active Model Version</dt><dd>{{ sr.model_version if sr.model_version else 'N/A' }}</dd>
+        </dl>
+        <h5>Submitted Feature Values</h5>
+        <dl class="info-dl simulation-features">
+            {% for name in ('duration', 'packet_count', 'byte_count', 'min_packet_size', 'max_packet_size', 'avg_packet_size', 'protocol_enc', 'direction_enc') %}
+            <dt>{{ name }}</dt><dd>{{ sr.features.get(name, 'N/A') if sr.features else 'N/A' }}</dd>
+            {% endfor %}
+        </dl>
+    </div>
+    {% endif %}
+
+    {# ------------------------------------------------------------------ #}
+    {# Polling connectivity indicator (managed entirely by JS)            #}
+    {# ------------------------------------------------------------------ #}
+    <div id="monitoring-poll-status"
+         class="poll-status-bar"
+         aria-live="polite"
+         role="status"
+         hidden>
+        {# Content written exclusively via textContent by monitoring.js #}
+    </div>
+
+</div>{# /.monitoring-page #}
+
+{# monitoring.js is served as a separate static file; no inline scripts #}
+<script src="{{ url_for('dashboard.static', filename='js/monitoring.js') }}"></script>
+{% endblock %}

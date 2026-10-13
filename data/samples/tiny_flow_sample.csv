@@ -1,0 +1,9 @@
+duration,packet_count,byte_count,min_packet_size,max_packet_size,avg_packet_size,protocol_enc,direction_enc,label
+1.5,10,1500,64,150,150.0,1,2,benign
+0.1,5,500,64,100,100.0,2,2,benign
+10.0,10000,640000,64,64,64.0,1,3,ddos
+0.5,50,3200,64,64,64.0,1,2,port_scan
+0.2,20,1280,64,64,64.0,1,2,port_scan
+12.0,2,128,64,64,64.0,1,2,brute_force
+1.2,12,2000,64,500,166.6,1,2,benign
+0.01,2,128,64,64,64.0,3,2,benign
